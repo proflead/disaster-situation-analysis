@@ -207,7 +207,7 @@ function EmptyAnalysisState({ isAnalyzing }: { isAnalyzing: boolean }) {
         <h2 className="text-xl font-semibold text-slate-950">{isAnalyzing ? "Analyzing reports" : "No analysis yet"}</h2>
         <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
           {isAnalyzing
-            ? "Extracting facts, checking contradictions, retrieving guidance, and drafting response outputs."
+            ? "Extracting facts, checking contradictions, retrieving guidance, and drafting response outputs. Large batches can take up to 5 minutes."
             : "Upload one or more PDF reports, then click Analyze."}
         </p>
       </CardContent>

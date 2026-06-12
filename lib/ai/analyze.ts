@@ -12,7 +12,7 @@ type ReportInput = {
 
 type AnalysisPayload = Omit<AnalysisResult, "id" | "createdAt" | "uploadedFiles">;
 
-const OPENAI_RESPONSE_TIMEOUT_MS = 240000;
+const OPENAI_RESPONSE_TIMEOUT_MS = 280000;
 
 export async function analyzeDisasterReports({
   reports,
