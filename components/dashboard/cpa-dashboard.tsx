@@ -12,6 +12,8 @@ import { Alert } from "@/components/ui/alert";
 import { DisasterMap } from "@/components/map/disaster-map";
 import type { AnalysisResult, GapStatus, MunicipalityImpact, Priority, RiskLevel, SummaryChart } from "@/lib/types/disaster";
 
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
 export function CpaDashboard() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -19,8 +21,12 @@ export function CpaDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   const onDrop = (acceptedFiles: File[]) => {
-    setFiles((current) => [...current, ...acceptedFiles].slice(0, 20));
-    setError(null);
+    setFiles((current) => {
+      const nextFiles = [...current, ...acceptedFiles].slice(0, 20);
+      const validationError = validateUploadSize(nextFiles);
+      setError(validationError);
+      return validationError ? current : nextFiles;
+    });
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -35,6 +41,12 @@ export function CpaDashboard() {
   async function runAnalysis() {
     if (!files.length) {
       setError("Add at least one PDF or XLSX file before running analysis.");
+      return;
+    }
+
+    const validationError = validateUploadSize(files);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -110,7 +122,7 @@ export function CpaDashboard() {
                 <input {...getInputProps()} />
                 <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-teal-600 text-white"><UploadCloud size={24} /></div>
                 <p className="font-semibold text-slate-950">Drop reports here</p>
-                <p className="mt-1 text-sm text-slate-500">PDF reports or XLSX spreadsheets</p>
+                <p className="mt-1 text-sm text-slate-500">PDF or XLSX, up to 4 MB total</p>
               </div>
 
               <div className="space-y-2">
@@ -163,6 +175,16 @@ export function CpaDashboard() {
       </div>
     </main>
   );
+}
+
+function validateUploadSize(files: File[]) {
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+  if (totalBytes <= MAX_UPLOAD_BYTES) return null;
+  return `Uploads must be under ${formatFileSize(MAX_UPLOAD_BYTES)} total for Vercel. Selected files are ${formatFileSize(totalBytes)}. Use fewer or smaller files.`;
+}
+
+function formatFileSize(bytes: number) {
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
 async function readJsonResponse(response: Response): Promise<unknown> {

@@ -8,8 +8,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const MAX_FILES = 20;
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
-const MAX_TOTAL_BYTES = 32 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
@@ -21,9 +20,9 @@ export async function POST(request: Request) {
     }
 
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-    if (totalBytes > MAX_TOTAL_BYTES) {
+    if (totalBytes > MAX_UPLOAD_BYTES) {
       return NextResponse.json(
-        { error: "The uploaded reports are too large to analyze in one request. Upload a smaller batch under 32 MB total." },
+        { error: "The uploaded reports are too large to analyze in one request. Upload a smaller batch under 4 MB total." },
         { status: 413 }
       );
     }
@@ -34,13 +33,6 @@ export async function POST(request: Request) {
     for (const file of files) {
       if (!isSupportedReportFile(file)) {
         return NextResponse.json({ error: `${file.name} is not supported. Upload a PDF or XLSX file.` }, { status: 400 });
-      }
-
-      if (file.size > MAX_FILE_BYTES) {
-        return NextResponse.json(
-          { error: `${file.name} is too large. Upload report files under 8 MB each or split the report into smaller files.` },
-          { status: 413 }
-        );
       }
 
       if (supabase) {
