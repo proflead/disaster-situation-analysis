@@ -10,6 +10,8 @@ type ReportInput = {
   text: string;
 };
 
+type AnalysisPayload = Omit<AnalysisResult, "id" | "createdAt" | "uploadedFiles">;
+
 export async function analyzeDisasterReports({
   reports,
   ragContext
@@ -43,7 +45,7 @@ export async function analyzeDisasterReports({
     (response as unknown as { output_text?: string }).output_text ??
     extractOutputText(response as unknown as { output?: unknown[] });
 
-  const parsed = JSON.parse(outputText) as Omit<AnalysisResult, "id" | "createdAt" | "uploadedFiles">;
+  const parsed = parseAnalysisOutput(outputText);
 
   return {
     id: randomUUID(),
@@ -52,6 +54,17 @@ export async function analyzeDisasterReports({
     ...parsed,
     mapFeatures: normalizeMapFeatures(parsed.mapFeatures)
   };
+}
+
+function parseAnalysisOutput(outputText: string): AnalysisPayload {
+  try {
+    return JSON.parse(outputText) as AnalysisPayload;
+  } catch {
+    const excerpt = outputText.replace(/\s+/g, " ").trim().slice(0, 300) || "empty response";
+    throw new Error(
+      `OpenAI returned a non-JSON analysis response. Try again, or check OPENAI_ANALYSIS_MODEL in the deployment environment. Response excerpt: ${excerpt}`
+    );
+  }
 }
 
 function extractOutputText(response: { output?: unknown[] }) {

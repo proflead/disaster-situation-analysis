@@ -42,9 +42,9 @@ export function CpaDashboard() {
 
     try {
       const response = await fetch("/api/analyze", { method: "POST", body });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Analysis failed.");
-      setAnalysis(payload);
+      const payload = await readJsonResponse(response);
+      if (!response.ok) throw new Error(getResponseError(payload, "Analysis failed."));
+      setAnalysis(payload as AnalysisResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analysis failed.");
     } finally {
@@ -54,18 +54,24 @@ export function CpaDashboard() {
 
   async function exportFile(kind: "pdf" | "pptx") {
     if (!analysis) return;
-    const response = await fetch("/api/export/" + kind, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(analysis)
-    });
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = kind === "pdf" ? "Civil-Protection-Authority-Copilot-Briefing.pdf" : "Civil-Protection-Authority-Copilot-Executive-Briefing.pptx";
-    anchor.click();
-    URL.revokeObjectURL(url);
+    try {
+      setError(null);
+      const response = await fetch("/api/export/" + kind, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(analysis)
+      });
+      if (!response.ok) throw new Error(await readErrorResponse(response));
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = kind === "pdf" ? "Civil-Protection-Authority-Copilot-Briefing.pdf" : "Civil-Protection-Authority-Copilot-Executive-Briefing.pptx";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed.");
+    }
   }
 
   const confidence = analysis ? Math.round(analysis.extraction.confidenceScore * 100) : 0;
@@ -154,6 +160,41 @@ export function CpaDashboard() {
       </div>
     </main>
   );
+}
+
+async function readJsonResponse(response: Response): Promise<unknown> {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) return response.json();
+
+  const text = await response.text();
+  const message = summarizeResponseText(text);
+  if (!response.ok) return { error: message || `Request failed with status ${response.status}.` };
+
+  throw new Error(
+    `Expected JSON from the analysis API, but received ${contentType || "a non-JSON response"}. ${message}`.trim()
+  );
+}
+
+async function readErrorResponse(response: Response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const payload = await response.json();
+    return getResponseError(payload, `Request failed with status ${response.status}.`);
+  }
+
+  return summarizeResponseText(await response.text()) || `Request failed with status ${response.status}.`;
+}
+
+function getResponseError(payload: unknown, fallback: string) {
+  if (payload && typeof payload === "object" && "error" in payload) {
+    const error = (payload as { error?: unknown }).error;
+    if (typeof error === "string" && error.trim()) return error;
+  }
+  return fallback;
+}
+
+function summarizeResponseText(text: string) {
+  return text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 500);
 }
 
 function EmptyAnalysisState({ isAnalyzing }: { isAnalyzing: boolean }) {
