@@ -10,9 +10,8 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert } from "@/components/ui/alert";
 import { DisasterMap } from "@/components/map/disaster-map";
+import { DIRECT_UPLOAD_LIMIT_BYTES, VERCEL_UPLOAD_LIMIT_BYTES, formatUploadSize } from "@/lib/uploads/limits";
 import type { AnalysisResult, GapStatus, MunicipalityImpact, Priority, RiskLevel, SummaryChart } from "@/lib/types/disaster";
-
-const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 export function CpaDashboard() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
@@ -52,11 +51,9 @@ export function CpaDashboard() {
 
     setIsAnalyzing(true);
     setError(null);
-    const body = new FormData();
-    files.forEach((file) => body.append("files", file));
 
     try {
-      const response = await fetch("/api/analyze", { method: "POST", body });
+      const response = await runAnalysisRequest(files);
       const payload = await readJsonResponse(response);
       if (!response.ok) throw new Error(getResponseError(payload, "Analysis failed."));
       setAnalysis(payload as AnalysisResult);
@@ -122,7 +119,7 @@ export function CpaDashboard() {
                 <input {...getInputProps()} />
                 <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-teal-600 text-white"><UploadCloud size={24} /></div>
                 <p className="font-semibold text-slate-950">Drop reports here</p>
-                <p className="mt-1 text-sm text-slate-500">PDF or XLSX, up to 4 MB total</p>
+                <p className="mt-1 text-sm text-slate-500">PDF or XLSX, up to 25 MB total</p>
               </div>
 
               <div className="space-y-2">
@@ -177,15 +174,70 @@ export function CpaDashboard() {
   );
 }
 
-function validateUploadSize(files: File[]) {
-  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-  if (totalBytes <= MAX_UPLOAD_BYTES) return null;
-  return `Uploads must be under ${formatFileSize(MAX_UPLOAD_BYTES)} total for Vercel. Selected files are ${formatFileSize(totalBytes)}. Use fewer or smaller files.`;
+async function runAnalysisRequest(files: File[]) {
+  const totalBytes = getTotalFileBytes(files);
+  if (totalBytes <= VERCEL_UPLOAD_LIMIT_BYTES) {
+    const body = new FormData();
+    files.forEach((file) => body.append("files", file));
+    return fetch("/api/analyze", { method: "POST", body });
+  }
+
+  const uploads = await uploadFilesToStorage(files);
+  return fetch("/api/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uploads })
+  });
 }
 
-function formatFileSize(bytes: number) {
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+async function uploadFilesToStorage(files: File[]) {
+  const signResponse = await fetch("/api/uploads/sign", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      files: files.map((file) => ({ name: file.name, type: file.type, size: file.size }))
+    })
+  });
+  const payload = await readJsonResponse(signResponse);
+  if (!signResponse.ok) throw new Error(getResponseError(payload, "Failed to prepare uploads."));
+
+  const uploads = (payload as { uploads: SignedUpload[] }).uploads;
+  for (const [index, upload] of uploads.entries()) {
+    const file = files[index];
+    if (!file) throw new Error("Could not match signed upload for " + upload.name + ".");
+
+    const body = new FormData();
+    body.append("cacheControl", "3600");
+    body.append("", file);
+
+    const uploadResponse = await fetch(upload.signedUrl, {
+      method: "PUT",
+      headers: { "x-upsert": "false" },
+      body
+    });
+    if (!uploadResponse.ok) throw new Error("Failed to upload " + file.name + " to storage.");
+  }
+
+  return uploads.map(({ name, path, contentType }) => ({ name, path, contentType }));
 }
+
+function validateUploadSize(files: File[]) {
+  const totalBytes = getTotalFileBytes(files);
+  if (totalBytes <= DIRECT_UPLOAD_LIMIT_BYTES) return null;
+  return "Uploads must be under " + formatUploadSize(DIRECT_UPLOAD_LIMIT_BYTES) + " total. Selected files are " + formatUploadSize(totalBytes) + ". Use fewer or smaller files.";
+}
+
+function getTotalFileBytes(files: File[]) {
+  return files.reduce((sum, file) => sum + file.size, 0);
+}
+
+
+type SignedUpload = {
+  name: string;
+  path: string;
+  signedUrl: string;
+  contentType: string;
+};
 
 async function readJsonResponse(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") || "";

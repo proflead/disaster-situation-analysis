@@ -3,31 +3,26 @@ import { analyzeDisasterReports } from "@/lib/ai/analyze";
 import { getReportContentType, isSupportedReportFile, parseReportFile, SUPPORTED_REPORT_FORMATS } from "@/lib/files/parse";
 import { storeAndRetrieveContext, type SourceDocument } from "@/lib/rag/pipeline";
 import { getSupabaseAdmin, SUPABASE_BUCKET } from "@/lib/supabase/server";
+import { MAX_FILES, VERCEL_UPLOAD_LIMIT_BYTES, formatUploadSize } from "@/lib/uploads/limits";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const MAX_FILES = 20;
-const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+type StoredUpload = {
+  name: string;
+  path: string;
+  contentType?: string;
+};
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
-    const files = formData.getAll("files").filter((item): item is File => item instanceof File);
+    const supabase = getSupabaseAdmin();
+    const { files, shouldStoreUploads } = await loadRequestFiles(request, supabase);
 
     if (files.length < 1 || files.length > MAX_FILES) {
       return NextResponse.json({ error: `Upload between 1 and ${MAX_FILES} report files (${SUPPORTED_REPORT_FORMATS}).` }, { status: 400 });
     }
 
-    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-    if (totalBytes > MAX_UPLOAD_BYTES) {
-      return NextResponse.json(
-        { error: "The uploaded reports are too large to analyze in one request. Upload a smaller batch under 4 MB total." },
-        { status: 413 }
-      );
-    }
-
-    const supabase = getSupabaseAdmin();
     const parsedDocuments: SourceDocument[] = [];
 
     for (const file of files) {
@@ -35,7 +30,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `${file.name} is not supported. Upload a PDF or XLSX file.` }, { status: 400 });
       }
 
-      if (supabase) {
+      if (supabase && shouldStoreUploads) {
         const path = `${Date.now()}-${file.name}`;
         await supabase.storage.from(SUPABASE_BUCKET).upload(path, file, {
           upsert: true,
@@ -77,6 +72,33 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+async function loadRequestFiles(request: Request, supabase: ReturnType<typeof getSupabaseAdmin>) {
+  const contentType = request.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    if (!supabase) throw new Error("Supabase is required to analyze uploaded storage files.");
+    const body = (await request.json()) as { uploads?: StoredUpload[] };
+    const uploads = body.uploads ?? [];
+    const files = await Promise.all(uploads.map((upload) => downloadStoredUpload(upload, supabase)));
+    return { files, shouldStoreUploads: false };
+  }
+
+  const formData = await request.formData();
+  const files = formData.getAll("files").filter((item): item is File => item instanceof File);
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+  if (totalBytes > VERCEL_UPLOAD_LIMIT_BYTES) {
+    throw new Error(`Uploads sent directly to Vercel must be under ${formatUploadSize(VERCEL_UPLOAD_LIMIT_BYTES)} total. Use direct upload for larger files.`);
+  }
+  return { files, shouldStoreUploads: true };
+}
+
+async function downloadStoredUpload(upload: StoredUpload, supabase: NonNullable<ReturnType<typeof getSupabaseAdmin>>) {
+  const { data, error } = await supabase.storage.from(SUPABASE_BUCKET).download(upload.path);
+  if (error) throw error;
+  return new File([await data.arrayBuffer()], upload.name, {
+    type: upload.contentType || "application/octet-stream"
+  });
 }
 
 function classifyDocument(filename: string, text: string): SourceDocument["kind"] {

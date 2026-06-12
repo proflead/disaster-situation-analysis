@@ -7,11 +7,17 @@ const MAX_EXCEL_TEXT_CHARS = 80000;
 
 export const SUPPORTED_REPORT_FORMATS = "PDF or XLSX";
 
+type ReportFileMetadata = { name: string; type?: string };
+
 export function isSupportedReportFile(file: File) {
+  return isSupportedReportMetadata(file);
+}
+
+export function isSupportedReportMetadata(file: ReportFileMetadata) {
   return isPdfFile(file) || isXlsxFile(file);
 }
 
-export function getReportContentType(file: File) {
+export function getReportContentType(file: ReportFileMetadata) {
   if (isPdfFile(file)) return file.type || "application/pdf";
   if (isXlsxFile(file)) return file.type || XLSX_MIME_TYPE;
   return file.type || "application/octet-stream";
@@ -23,11 +29,11 @@ export async function parseReportFile(file: File) {
   throw new Error(`${file.name} is not a supported report file. Upload a PDF or XLSX file.`);
 }
 
-function isPdfFile(file: File) {
+function isPdfFile(file: ReportFileMetadata) {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 }
 
-function isXlsxFile(file: File) {
+function isXlsxFile(file: ReportFileMetadata) {
   return file.type === XLSX_MIME_TYPE || file.name.toLowerCase().endsWith(".xlsx");
 }
 

@@ -61,7 +61,7 @@ lib/ai/schemas.ts defines the structured output schema used by the Responses API
 
 ## Main Workflow
 
-1. Drag and drop 1-20 PDF or XLSX files, up to 4 MB total per analysis request.
+1. Drag and drop 1-20 PDF or XLSX files, up to 25 MB total per analysis request when Supabase Storage is configured.
 2. Click Analyze.
 3. Review detected municipalities, confidence, missing information, contradictions, summary, action plan, resource gaps, and map layers.
 4. Export the briefing package as PDF or the five-slide executive deck as PowerPoint.
