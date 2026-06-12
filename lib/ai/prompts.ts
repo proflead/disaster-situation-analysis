@@ -26,6 +26,9 @@ Compare reports side by side. Identify conflicting figures, dates, infrastructur
 Do not resolve contradictions unless the source evidence clearly explains the difference.
 `;
 
+const MAX_REPORT_CHARS = 8000;
+const MAX_TOTAL_REPORT_CHARS = 60000;
+
 export function buildAnalysisPrompt({
   reports,
   ragContext
@@ -33,8 +36,13 @@ export function buildAnalysisPrompt({
   reports: { filename: string; text: string }[];
   ragContext: string;
 }) {
+  let remainingChars = MAX_TOTAL_REPORT_CHARS;
   const reportText = reports
-    .map((report, index) => `REPORT ${index + 1}: ${report.filename}\n${report.text.slice(0, 12000)}`)
+    .map((report, index) => {
+      const sliceLength = Math.max(0, Math.min(MAX_REPORT_CHARS, remainingChars));
+      remainingChars -= sliceLength;
+      return `REPORT ${index + 1}: ${report.filename}\n${report.text.slice(0, sliceLength)}`;
+    })
     .join("\n\n---\n\n");
 
   return `

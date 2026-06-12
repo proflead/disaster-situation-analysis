@@ -2,6 +2,8 @@ import { getOpenAIClient, OPENAI_EMBEDDING_MODEL } from "@/lib/ai/client";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkText, localRetrieve } from "./chunk";
 
+const MAX_RAG_CHUNKS = 48;
+
 export type SourceDocument = {
   source: string;
   kind: "report" | "sop" | "guideline" | "historical";
@@ -17,14 +19,16 @@ export async function storeAndRetrieveContext({
 }) {
   const openai = getOpenAIClient();
   const supabase = getSupabaseAdmin();
-  const chunks = documents.flatMap((document) =>
-    chunkText(document.text).map((text, index) => ({
-      source: document.source,
-      kind: document.kind,
-      section: `${document.kind.toUpperCase()} chunk ${index + 1}`,
-      text
-    }))
-  );
+  const chunks = documents
+    .flatMap((document) =>
+      chunkText(document.text, 1400).map((text, index) => ({
+        source: document.source,
+        kind: document.kind,
+        section: `${document.kind.toUpperCase()} chunk ${index + 1}`,
+        text
+      }))
+    )
+    .slice(0, MAX_RAG_CHUNKS);
 
   if (openai && supabase) {
     try {

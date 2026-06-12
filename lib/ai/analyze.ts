@@ -12,6 +12,8 @@ type ReportInput = {
 
 type AnalysisPayload = Omit<AnalysisResult, "id" | "createdAt" | "uploadedFiles">;
 
+const OPENAI_RESPONSE_TIMEOUT_MS = 240000;
+
 export async function analyzeDisasterReports({
   reports,
   ragContext
@@ -39,7 +41,7 @@ export async function analyzeDisasterReports({
       }
     },
     max_output_tokens: 12000
-  } as never);
+  } as never, { timeout: OPENAI_RESPONSE_TIMEOUT_MS });
 
   const outputText =
     (response as unknown as { output_text?: string }).output_text ??

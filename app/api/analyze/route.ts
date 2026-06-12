@@ -5,15 +5,27 @@ import { storeAndRetrieveContext, type SourceDocument } from "@/lib/rag/pipeline
 import { getSupabaseAdmin, SUPABASE_BUCKET } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
+
+const MAX_FILES = 20;
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 32 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const files = formData.getAll("files").filter((item): item is File => item instanceof File);
 
-    if (files.length < 1 || files.length > 20) {
-      return NextResponse.json({ error: "Upload between 1 and 20 PDF files." }, { status: 400 });
+    if (files.length < 1 || files.length > MAX_FILES) {
+      return NextResponse.json({ error: `Upload between 1 and ${MAX_FILES} PDF files.` }, { status: 400 });
+    }
+
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    if (totalBytes > MAX_TOTAL_BYTES) {
+      return NextResponse.json(
+        { error: "The uploaded PDFs are too large to analyze in one request. Upload a smaller batch under 32 MB total." },
+        { status: 413 }
+      );
     }
 
     const supabase = getSupabaseAdmin();
@@ -22,6 +34,13 @@ export async function POST(request: Request) {
     for (const file of files) {
       if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
         return NextResponse.json({ error: `${file.name} is not a PDF.` }, { status: 400 });
+      }
+
+      if (file.size > MAX_FILE_BYTES) {
+        return NextResponse.json(
+          { error: `${file.name} is too large. Upload PDFs under 8 MB each or split the report into smaller files.` },
+          { status: 413 }
+        );
       }
 
       if (supabase) {
