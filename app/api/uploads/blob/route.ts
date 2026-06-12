@@ -7,8 +7,15 @@ const ALLOWED_CONTENT_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 ];
 
+const BLOB_CONFIGURATION_ERROR =
+  "Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN to this environment, then redeploy or restart the development server.";
+
 export async function POST(request: Request) {
   try {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return NextResponse.json({ error: BLOB_CONFIGURATION_ERROR }, { status: 503 });
+    }
+
     const body = (await request.json()) as HandleUploadBody;
     const response = await handleUpload({
       request,

@@ -195,22 +195,54 @@ async function uploadFilesToStorage(files: File[]) {
   const uploads = [];
 
   for (const file of files) {
-    const blob = await upload("reports/" + sanitizeFilename(file.name), file, {
-      access: "private",
-      handleUploadUrl: "/api/uploads/blob",
-      contentType: file.type || "application/octet-stream",
-      multipart: file.size > VERCEL_UPLOAD_LIMIT_BYTES,
-    });
+    const pathname = "reports/" + sanitizeFilename(file.name);
+    const multipart = file.size > VERCEL_UPLOAD_LIMIT_BYTES;
 
-    uploads.push({
-      name: file.name,
-      url: blob.url,
-      pathname: blob.pathname,
-      contentType: blob.contentType || file.type || "application/octet-stream",
-    });
+    try {
+      const blob = await upload(pathname, file, {
+        access: "private",
+        handleUploadUrl: "/api/uploads/blob",
+        contentType: file.type || "application/octet-stream",
+        multipart,
+      });
+
+      uploads.push({
+        name: file.name,
+        url: blob.url,
+        pathname: blob.pathname,
+        contentType: blob.contentType || file.type || "application/octet-stream",
+      });
+    } catch (error) {
+      throw await normalizeBlobUploadError(error, pathname, multipart);
+    }
   }
 
   return uploads;
+}
+
+async function normalizeBlobUploadError(error: unknown, pathname: string, multipart: boolean) {
+  const message = error instanceof Error ? error.message : String(error || "Upload failed.");
+  if (!message.toLowerCase().includes("client token")) {
+    return error instanceof Error ? error : new Error(message);
+  }
+
+  try {
+    const response = await fetch("/api/uploads/blob", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "blob.generate-client-token",
+        payload: { pathname, clientPayload: null, multipart }
+      })
+    });
+    const payload = await readJsonResponse(response);
+    const routeError = getResponseError(payload, "");
+    if (routeError) return new Error(routeError);
+  } catch {
+    // Preserve the clearer fallback below when the diagnostic request fails too.
+  }
+
+  return new Error("Vercel Blob could not prepare the upload token. Check BLOB_READ_WRITE_TOKEN for this environment.");
 }
 
 function validateUploadSize(files: File[]) {
