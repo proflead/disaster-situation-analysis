@@ -6,7 +6,7 @@ Civil Protection Authority Copilot is a production-quality MVP for Timor-Leste C
 
 - Next.js 15 App Router, TypeScript, TailwindCSS, shadcn-style local UI components
 - OpenAI Responses API with structured JSON output
-- Supabase Storage, Postgres, and pgvector for RAG
+- Vercel Blob for larger report uploads; Supabase Storage, Postgres, and pgvector for optional RAG persistence
 - PDF parsing with pdf-parse
 - React Leaflet and OpenStreetMap
 - PDF export with pdfkit
@@ -34,6 +34,7 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-large
 NEXT_PUBLIC_SUPABASE_URL=https://PROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=...
 SUPABASE_BUCKET=cpa-documents
+BLOB_READ_WRITE_TOKEN=vercel-blob-token
 ```
 
 OPENAI_ANALYSIS_MODEL defaults to the requested gpt-5.5 model slug and can be changed without code edits.
@@ -61,7 +62,7 @@ lib/ai/schemas.ts defines the structured output schema used by the Responses API
 
 ## Main Workflow
 
-1. Drag and drop 1-20 PDF or XLSX files, up to 25 MB total per analysis request when Supabase Storage is configured.
+1. Drag and drop 1-20 PDF or XLSX files, up to 25 MB total per analysis request when Vercel Blob is configured.
 2. Click Analyze.
 3. Review detected municipalities, confidence, missing information, contradictions, summary, action plan, resource gaps, and map layers.
 4. Export the briefing package as PDF or the five-slide executive deck as PowerPoint.
@@ -73,7 +74,7 @@ lib/ai/schemas.ts defines the structured output schema used by the Responses API
 3. Add the environment variables above in Vercel Project Settings > Environment Variables for the Production environment. Include Preview too if you test preview deployments.
 4. Deploy. If you add or change environment variables after a deployment, redeploy so the serverless functions receive the new values.
 
-vercel.json configures longer durations for analysis and export routes.
+vercel.json configures longer durations for analysis and export routes. Vercel Blob must be connected for upload batches over 4 MB.
 
 ## Notes for Builder Lab Demo
 

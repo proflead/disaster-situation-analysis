@@ -1,3 +1,4 @@
+import { get } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { analyzeDisasterReports } from "@/lib/ai/analyze";
 import { getReportContentType, isSupportedReportFile, parseReportFile, SUPPORTED_REPORT_FORMATS } from "@/lib/files/parse";
@@ -10,7 +11,8 @@ export const maxDuration = 300;
 
 type StoredUpload = {
   name: string;
-  path: string;
+  path?: string;
+  url?: string;
   contentType?: string;
 };
 
@@ -77,7 +79,6 @@ export async function POST(request: Request) {
 async function loadRequestFiles(request: Request, supabase: ReturnType<typeof getSupabaseAdmin>) {
   const contentType = request.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
-    if (!supabase) throw new Error("Supabase is required to analyze uploaded storage files.");
     const body = (await request.json()) as { uploads?: StoredUpload[] };
     const uploads = body.uploads ?? [];
     const files = await Promise.all(uploads.map((upload) => downloadStoredUpload(upload, supabase)));
@@ -93,11 +94,27 @@ async function loadRequestFiles(request: Request, supabase: ReturnType<typeof ge
   return { files, shouldStoreUploads: true };
 }
 
-async function downloadStoredUpload(upload: StoredUpload, supabase: NonNullable<ReturnType<typeof getSupabaseAdmin>>) {
+async function downloadStoredUpload(upload: StoredUpload, supabase: ReturnType<typeof getSupabaseAdmin>) {
+  if (upload.url) return downloadBlobUpload(upload);
+  if (!upload.path) throw new Error("Uploaded file reference is missing a Blob URL or storage path.");
+  if (!supabase) throw new Error("Supabase is required to analyze Supabase storage files.");
+
   const { data, error } = await supabase.storage.from(SUPABASE_BUCKET).download(upload.path);
   if (error) throw error;
   return new File([await data.arrayBuffer()], upload.name, {
     type: upload.contentType || "application/octet-stream"
+  });
+}
+
+async function downloadBlobUpload(upload: StoredUpload) {
+  const result = await get(upload.url as string, { access: "private" });
+  if (!result || result.statusCode !== 200 || !result.stream) {
+    throw new Error("Could not download uploaded file from Vercel Blob.");
+  }
+
+  const blob = await new Response(result.stream).blob();
+  return new File([await blob.arrayBuffer()], upload.name, {
+    type: upload.contentType || result.blob.contentType || "application/octet-stream"
   });
 }
 

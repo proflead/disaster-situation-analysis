@@ -1,5 +1,6 @@
 "use client";
 
+import { upload } from "@vercel/blob/client";
 import { useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { AlertTriangle, BarChart3, BookOpenCheck, Building2, CheckCircle2, ClipboardList, Clock3, Download, FileText, Info, Loader2, PackageCheck, UploadCloud, Waves, X } from "lucide-react";
@@ -191,34 +192,25 @@ async function runAnalysisRequest(files: File[]) {
 }
 
 async function uploadFilesToStorage(files: File[]) {
-  const signResponse = await fetch("/api/uploads/sign", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      files: files.map((file) => ({ name: file.name, type: file.type, size: file.size }))
-    })
-  });
-  const payload = await readJsonResponse(signResponse);
-  if (!signResponse.ok) throw new Error(getResponseError(payload, "Failed to prepare uploads."));
+  const uploads = [];
 
-  const uploads = (payload as { uploads: SignedUpload[] }).uploads;
-  for (const [index, upload] of uploads.entries()) {
-    const file = files[index];
-    if (!file) throw new Error("Could not match signed upload for " + upload.name + ".");
-
-    const body = new FormData();
-    body.append("cacheControl", "3600");
-    body.append("", file);
-
-    const uploadResponse = await fetch(upload.signedUrl, {
-      method: "PUT",
-      headers: { "x-upsert": "false" },
-      body
+  for (const file of files) {
+    const blob = await upload("reports/" + sanitizeFilename(file.name), file, {
+      access: "private",
+      handleUploadUrl: "/api/uploads/blob",
+      contentType: file.type || "application/octet-stream",
+      multipart: file.size > VERCEL_UPLOAD_LIMIT_BYTES,
     });
-    if (!uploadResponse.ok) throw new Error("Failed to upload " + file.name + " to storage.");
+
+    uploads.push({
+      name: file.name,
+      url: blob.url,
+      pathname: blob.pathname,
+      contentType: blob.contentType || file.type || "application/octet-stream",
+    });
   }
 
-  return uploads.map(({ name, path, contentType }) => ({ name, path, contentType }));
+  return uploads;
 }
 
 function validateUploadSize(files: File[]) {
@@ -232,12 +224,9 @@ function getTotalFileBytes(files: File[]) {
 }
 
 
-type SignedUpload = {
-  name: string;
-  path: string;
-  signedUrl: string;
-  contentType: string;
-};
+function sanitizeFilename(name: string) {
+  return name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "report";
+}
 
 async function readJsonResponse(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") || "";
