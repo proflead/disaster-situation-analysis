@@ -1,6 +1,8 @@
-# Civil Protection Authority Copilot
+# Disaster Situation Analysis and Response Planning
 
-Civil Protection Authority Copilot is a Next.js application for disaster situation analysis and response planning in Timor-Leste. It helps Civil Protection Authority officers turn PDF and XLSX field reports into an operational briefing with extracted facts, risk assessment, action planning, resource gaps, contradiction checks, missing-information flags, map visualization, and exportable PDF/PPTX packages.
+Disaster Situation Analysis and Response Planning is a Next.js application for disaster situation analysis and response planning in Timor-Leste. It helps Civil Protection Authority officers turn PDF and XLSX field reports into an operational briefing with extracted facts, risk assessment, action planning, resource gaps, contradiction checks, missing-information flags, map visualization, and exportable PDF/PPTX packages.
+
+Author: [Vladislav Guzey](https://proflead.dev)
 
 ## Contents
 

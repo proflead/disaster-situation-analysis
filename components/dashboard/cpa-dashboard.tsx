@@ -171,6 +171,13 @@ export function CpaDashboard() {
           {analysis ? <AnalysisWorkspace analysis={analysis} /> : <EmptyAnalysisState isAnalyzing={isAnalyzing} />}
         </section>
       </div>
+
+      <footer className="border-t border-slate-200 bg-white/80">
+        <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between lg:px-6">
+          <span>Disaster Situation Analysis and Response Planning</span>
+          <span>Created by <a href="https://proflead.dev" target="_blank" rel="noreferrer" className="font-medium text-teal-700 hover:text-teal-800">Vladislav Guzey</a></span>
+        </div>
+      </footer>
     </main>
   );
 }

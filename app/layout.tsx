@@ -15,7 +15,9 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Civil Protection Authority Copilot",
-  description: "Civil Protection Authority disaster response copilot for Timor-Leste municipalities."
+  description: "Civil Protection Authority disaster response copilot for Timor-Leste municipalities.",
+  authors: [{ name: "Vladislav Guzey", url: "https://proflead.dev" }],
+  creator: "Vladislav Guzey"
 };
 
 export default function RootLayout({
