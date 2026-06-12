@@ -3,7 +3,7 @@ import { OPENAI_ANALYSIS_MODEL, getOpenAIClient } from "./client";
 import { buildAnalysisPrompt } from "./prompts";
 import { disasterAnalysisJsonSchema } from "./schemas";
 import type { AnalysisResult } from "@/lib/types/disaster";
-import { normalizeMapFeatures } from "@/lib/map/normalize";
+import { normalizeAnalysisMapFeatures } from "@/lib/map/normalize";
 
 type ReportInput = {
   filename: string;
@@ -49,12 +49,16 @@ export async function analyzeDisasterReports({
 
   const parsed = parseAnalysisOutput(outputText);
 
-  return {
+  const analysis = {
     id: randomUUID(),
     createdAt: new Date().toISOString(),
     uploadedFiles: reports.map((report) => report.filename),
-    ...parsed,
-    mapFeatures: normalizeMapFeatures(parsed.mapFeatures)
+    ...parsed
+  };
+
+  return {
+    ...analysis,
+    mapFeatures: normalizeAnalysisMapFeatures(analysis)
   };
 }
 
