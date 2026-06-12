@@ -1,4 +1,4 @@
-import { MUNICIPALITY_CENTROIDS } from "@/lib/municipalities";
+import { MUNICIPALITY_CENTROIDS, canonicalizeMunicipalityName, normalizeMunicipalityNameKey, uniqueMunicipalityNames } from "@/lib/municipalities";
 import type { AnalysisResult, MapFeature, MunicipalityImpact, RiskLevel } from "@/lib/types/disaster";
 
 const TIMOR_LESTE_BOUNDS = {
@@ -22,7 +22,8 @@ export function normalizeMapFeatures(features: MapFeature[]) {
 }
 
 export function normalizeMapFeature(feature: MapFeature): MapFeature {
-  const centroid = getMunicipalityCentroid(feature.municipality);
+  const municipality = canonicalizeMunicipalityName(feature.municipality);
+  const centroid = getMunicipalityCentroid(municipality);
   const fixed = getValidCoordinate(feature.lat, feature.lng);
   const shouldUseCentroid = feature.type === "affected" || !fixed;
   const coordinate = shouldUseCentroid ? centroid : fixed;
@@ -30,6 +31,8 @@ export function normalizeMapFeature(feature: MapFeature): MapFeature {
 
   return {
     ...feature,
+    municipality,
+    name: feature.name.replace(feature.municipality, municipality),
     lat: coordinate.lat,
     lng: coordinate.lng,
     note: usedFallback && !feature.note.toLowerCase().includes("centroid")
@@ -55,10 +58,10 @@ function buildMunicipalityFallbackFeatures(analysis: Pick<AnalysisResult, "mapFe
   const existingAffectedMunicipalities = new Set(
     (analysis.mapFeatures ?? [])
       .filter((feature) => feature.type === "affected")
-      .map((feature) => normalizeName(feature.municipality))
+      .map((feature) => normalizeMunicipalityNameKey(canonicalizeMunicipalityName(feature.municipality)))
   );
   const impactsByMunicipality = new Map(
-    analysis.extraction.municipalityImpacts.map((impact) => [normalizeName(impact.municipality), impact])
+    analysis.extraction.municipalityImpacts.map((impact) => [normalizeMunicipalityNameKey(canonicalizeMunicipalityName(impact.municipality)), impact])
   );
   const municipalities = uniqueMunicipalities([
     ...analysis.extraction.municipalityImpacts.map((impact) => impact.municipality),
@@ -67,9 +70,9 @@ function buildMunicipalityFallbackFeatures(analysis: Pick<AnalysisResult, "mapFe
   ]);
 
   return municipalities
-    .filter((municipality) => !existingAffectedMunicipalities.has(normalizeName(municipality)))
+    .filter((municipality) => !existingAffectedMunicipalities.has(normalizeMunicipalityNameKey(municipality)))
     .map((municipality) => {
-      const impact = impactsByMunicipality.get(normalizeName(municipality));
+      const impact = impactsByMunicipality.get(normalizeMunicipalityNameKey(municipality));
       return createMunicipalityFallbackFeature(municipality, impact, analysis.situationBrief.severity);
     });
 }
@@ -86,7 +89,7 @@ function createMunicipalityFallbackFeature(
     : "";
 
   return {
-    id: "municipality-" + normalizeName(municipality).replace(/[^a-z0-9]+/g, "-"),
+    id: "municipality-" + normalizeMunicipalityNameKey(municipality).replace(/[^a-z0-9]+/g, "-"),
     type: "affected",
     name: municipality + " affected area",
     municipality,
@@ -98,26 +101,15 @@ function createMunicipalityFallbackFeature(
 }
 
 function uniqueMunicipalities(values: string[]) {
-  const seen = new Set<string>();
-  const result: string[] = [];
-
-  for (const value of values) {
-    const name = value.trim();
-    const normalized = normalizeName(name);
-    if (!name || seen.has(normalized)) continue;
-    seen.add(normalized);
-    result.push(name);
-  }
-
-  return result;
+  return uniqueMunicipalityNames(values);
 }
 
 function getMunicipalityCentroid(name: string) {
   const direct = MUNICIPALITY_CENTROIDS[name];
   if (direct) return direct;
 
-  const normalizedName = normalizeName(name);
-  const match = Object.entries(MUNICIPALITY_CENTROIDS).find(([candidate]) => normalizeName(candidate) === normalizedName);
+  const normalizedName = normalizeMunicipalityNameKey(name);
+  const match = Object.entries(MUNICIPALITY_CENTROIDS).find(([candidate]) => normalizeMunicipalityNameKey(candidate) === normalizedName);
   return match?.[1] ?? DEFAULT_CENTER;
 }
 
@@ -136,6 +128,3 @@ function isInTimorLeste(lat: number, lng: number) {
     lng <= TIMOR_LESTE_BOUNDS.maxLng;
 }
 
-function normalizeName(value: string) {
-  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
-}
