@@ -1,6 +1,6 @@
 # Civil Protection Authority Copilot
 
-Civil Protection Authority Copilot is a production-quality MVP for Timor-Leste Civil Protection Authority officers. It turns uploaded disaster PDFs into a municipal situation briefing, action plan, resource gap analysis, contradiction list, missing-information register, map view, PDF package, and five-slide PowerPoint briefing.
+Civil Protection Authority Copilot is a production-quality MVP for Timor-Leste Civil Protection Authority officers. It turns uploaded disaster PDFs and XLSX spreadsheets into a municipal situation briefing, action plan, resource gap analysis, contradiction list, missing-information register, map view, PDF package, and five-slide PowerPoint briefing.
 
 ## Stack
 
@@ -23,7 +23,7 @@ npm run dev
 
 Open http://localhost:3000.
 
-The app starts with an empty analysis workspace. Upload PDFs and click Analyze to run live PDF parsing, RAG retrieval, and OpenAI structured analysis. OPENAI_API_KEY is required for analysis.
+The app starts with an empty analysis workspace. Upload PDFs or XLSX spreadsheets and click Analyze to run live PDF parsing, RAG retrieval, and OpenAI structured analysis. OPENAI_API_KEY is required for analysis.
 
 ## Environment Variables
 
@@ -61,7 +61,7 @@ lib/ai/schemas.ts defines the structured output schema used by the Responses API
 
 ## Main Workflow
 
-1. Drag and drop 1-20 PDF files.
+1. Drag and drop 1-20 PDF or XLSX files.
 2. Click Analyze.
 3. Review detected municipalities, confidence, missing information, contradictions, summary, action plan, resource gaps, and map layers.
 4. Export the briefing package as PDF or the five-slide executive deck as PowerPoint.
@@ -77,7 +77,7 @@ vercel.json configures longer durations for analysis and export routes.
 
 ## Notes for Builder Lab Demo
 
-- Upload PDFs that mention municipalities such as Dili, Baucau, Ermera, Lautem/Lautém, or Liquica/Liquiçá to demonstrate automatic municipality detection.
+- Upload PDFs or XLSX spreadsheets that mention municipalities such as Dili, Baucau, Ermera, Lautem/Lautém, or Liquica/Liquiçá to demonstrate automatic municipality detection.
 - Include an SOP or guideline PDF so action-plan recommendations can display citations.
 - Show the contradiction panel and missing-information card to emphasize decision support rather than pure summarization.
 - Export PDF and PPTX after analysis to demonstrate measurable briefing-time reduction.

@@ -25,13 +25,16 @@ export function CpaDashboard() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "application/pdf": [".pdf"] },
+    accept: {
+      "application/pdf": [".pdf"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"]
+    },
     maxFiles: 20
   });
 
   async function runAnalysis() {
     if (!files.length) {
-      setError("Add at least one PDF before running analysis.");
+      setError("Add at least one PDF or XLSX file before running analysis.");
       return;
     }
 
@@ -100,14 +103,14 @@ export function CpaDashboard() {
         <section className="space-y-4 xl:sticky xl:top-4 xl:self-start">
           <Card className="border-slate-200 shadow-none">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm uppercase text-slate-600"><UploadCloud size={16} /> Documents <InfoTooltip text="Upload the PDF reports, SOPs, guidelines, or assessments Civil Protection Authority Copilot should analyze." /></CardTitle>
+              <CardTitle className="flex items-center gap-2 text-sm uppercase text-slate-600"><UploadCloud size={16} /> Documents <InfoTooltip text="Upload the PDF or XLSX reports, SOPs, guidelines, or assessments Civil Protection Authority Copilot should analyze." /></CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div {...getRootProps()} className={(isDragActive ? "border-teal-500 bg-teal-50 " : "border-slate-300 bg-white hover:border-teal-400 hover:bg-teal-50/40 ") + "flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed p-5 text-center transition-colors"}>
                 <input {...getInputProps()} />
                 <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-teal-600 text-white"><UploadCloud size={24} /></div>
-                <p className="font-semibold text-slate-950">Drop PDFs here</p>
-                <p className="mt-1 text-sm text-slate-500">Situation reports, SOPs, guidelines</p>
+                <p className="font-semibold text-slate-950">Drop reports here</p>
+                <p className="mt-1 text-sm text-slate-500">PDF reports or XLSX spreadsheets</p>
               </div>
 
               <div className="space-y-2">
@@ -208,7 +211,7 @@ function EmptyAnalysisState({ isAnalyzing }: { isAnalyzing: boolean }) {
         <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
           {isAnalyzing
             ? "Extracting facts, checking contradictions, retrieving guidance, and drafting response outputs. Large batches can take up to 5 minutes."
-            : "Upload one or more PDF reports, then click Analyze."}
+            : "Upload one or more PDF or XLSX reports, then click Analyze."}
         </p>
       </CardContent>
     </Card>

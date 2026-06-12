@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { analyzeDisasterReports } from "@/lib/ai/analyze";
-import { parsePdfFile } from "@/lib/pdf/parse";
+import { getReportContentType, isSupportedReportFile, parseReportFile, SUPPORTED_REPORT_FORMATS } from "@/lib/files/parse";
 import { storeAndRetrieveContext, type SourceDocument } from "@/lib/rag/pipeline";
 import { getSupabaseAdmin, SUPABASE_BUCKET } from "@/lib/supabase/server";
 
@@ -17,13 +17,13 @@ export async function POST(request: Request) {
     const files = formData.getAll("files").filter((item): item is File => item instanceof File);
 
     if (files.length < 1 || files.length > MAX_FILES) {
-      return NextResponse.json({ error: `Upload between 1 and ${MAX_FILES} PDF files.` }, { status: 400 });
+      return NextResponse.json({ error: `Upload between 1 and ${MAX_FILES} report files (${SUPPORTED_REPORT_FORMATS}).` }, { status: 400 });
     }
 
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
     if (totalBytes > MAX_TOTAL_BYTES) {
       return NextResponse.json(
-        { error: "The uploaded PDFs are too large to analyze in one request. Upload a smaller batch under 32 MB total." },
+        { error: "The uploaded reports are too large to analyze in one request. Upload a smaller batch under 32 MB total." },
         { status: 413 }
       );
     }
@@ -32,13 +32,13 @@ export async function POST(request: Request) {
     const parsedDocuments: SourceDocument[] = [];
 
     for (const file of files) {
-      if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-        return NextResponse.json({ error: `${file.name} is not a PDF.` }, { status: 400 });
+      if (!isSupportedReportFile(file)) {
+        return NextResponse.json({ error: `${file.name} is not supported. Upload a PDF or XLSX file.` }, { status: 400 });
       }
 
       if (file.size > MAX_FILE_BYTES) {
         return NextResponse.json(
-          { error: `${file.name} is too large. Upload PDFs under 8 MB each or split the report into smaller files.` },
+          { error: `${file.name} is too large. Upload report files under 8 MB each or split the report into smaller files.` },
           { status: 413 }
         );
       }
@@ -47,11 +47,11 @@ export async function POST(request: Request) {
         const path = `${Date.now()}-${file.name}`;
         await supabase.storage.from(SUPABASE_BUCKET).upload(path, file, {
           upsert: true,
-          contentType: "application/pdf"
+          contentType: getReportContentType(file)
         });
       }
 
-      const text = await parsePdfFile(file);
+      const text = await parseReportFile(file);
       parsedDocuments.push({
         source: file.name,
         kind: classifyDocument(file.name, text),
