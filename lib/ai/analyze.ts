@@ -20,7 +20,9 @@ export async function analyzeDisasterReports({
   const openai = getOpenAIClient();
 
   if (!openai) {
-    throw new Error("OPENAI_API_KEY is required to analyze uploaded reports. Add it to .env.local and restart the app.");
+    throw new Error(
+      "OPENAI_API_KEY is required to analyze uploaded reports. In Vercel, add OPENAI_API_KEY in Project Settings > Environment Variables for Production/Preview and redeploy. For local development, add it to .env.local and restart the app."
+    );
   }
 
   const response = await openai.responses.create({

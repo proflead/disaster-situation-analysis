@@ -70,8 +70,8 @@ lib/ai/schemas.ts defines the structured output schema used by the Responses API
 
 1. Push the repo to GitHub.
 2. Import it into Vercel.
-3. Add the environment variables above.
-4. Deploy.
+3. Add the environment variables above in Vercel Project Settings > Environment Variables for the Production environment. Include Preview too if you test preview deployments.
+4. Deploy. If you add or change environment variables after a deployment, redeploy so the serverless functions receive the new values.
 
 vercel.json configures longer durations for analysis and export routes.
 
