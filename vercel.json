@@ -10,5 +10,8 @@
     "app/api/export/pptx/route.ts": {
       "maxDuration": 30
     }
+  },
+  "git": {
+    "deploymentEnabled": false
   }
 }
